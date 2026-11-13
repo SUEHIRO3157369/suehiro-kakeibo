@@ -1,0 +1,9 @@
+末廣家の家計簿：ログイン確認版（まだ夫婦同期しません）
+
+1. Firebase Console > Authentication > 設定 > 承認済みドメイン に suehiro3157369.github.io を追加します（https:// は不要）。
+2. GitHubのリポジトリ suehiro-kakeibo の main に、このフォルダ内の index.html, auth.js, sw.js をアップロードして既存ファイルを置き換えます。既存データを守るため、style.css, script.jsを変更する必要はありません。必要なファイルはすべてこのZIPにも同梱しています。
+3. GitHub Pagesの公開処理が完了したらSafariで既存URLを開き、Firebase登録済みアカウントでログインします。
+4. 一度ログインすると同じSafari環境では通常ログインが保持されます（Cookie/ブラウザデータ消去や別ホーム画面アプリでは再ログインが必要になる場合あり）。
+
+注意：今回の版は「本人のログイン確認」のみです。収支・写真は従来どおり端末内に保存し、Firestoreへの書き込み・夫婦共有は一切行いません。既存データを削除せず移行するための段階的な更新です。
+Firebase接続用のapiKeyはWebアプリでは公開される仕様です。Firestore Rulesを緩めないでください。
