@@ -44,20 +44,57 @@ async function doImport(){
   for(const r of missing){
     try{
       let hasPhoto=!!r.hasPhoto;
-      if(hasPhoto){const blob=await localPhoto('entry-'+r.id);if(blob){await cloud.saveImage('entry-'+r.id,await compress(blob,850));}else hasPhoto=false;}
-      await cloud.saveRecord({...r,id:String(r.id),hasPhoto});success++;
+      if(hasPhoto){const blob=await localPhoto('entry-'+r.id);if(blob){await cloud.importImageIfMissing('entry-'+r.id,await compress(blob,850));}else hasPhoto=false;}
+      await cloud.importRecordIfMissing({...r,id:String(r.id),hasPhoto});success++;
     }catch{failed++;}
   }
-  if(oldHero){try{await cloud.saveImage('hero',await compress(oldHero,1100));}catch{failed++;}}
+  if(oldHero){try{await cloud.importImageIfMissing('hero',await compress(oldHero,1100));}catch{failed++;}}
   importing=false;updateMigrationCount();
   status(failed?`移行：${success}件成功、${failed}件失敗。元の記録は保持しています。`:`以前の記録${success}件を引き継ぎました。自動保存は引き続き有効です。`,failed?'error':'ok');
 }
 $('migrationButton').onclick=doImport;
+
+// 夫婦共有 v4: UIDはアプリ内のみで入力。トップ写真は個人用のまま。
+function updateFamilyDisplay(){
+  const mode=cloud?.getMode?.()||{shared:false};
+  $('familySetup').hidden=!cloud||mode.shared;
+  $('familyActive').hidden=!cloud||!mode.shared;
+  $('familyMigration').hidden=!cloud||!mode.isOwner;
+  $('copyFamilyId').hidden=!mode.isOwner;
+}
+$('createFamily').onclick=async()=>{
+  const b=$('createFamily');b.disabled=true;$('familyMessage').textContent='設定中…';
+  try{await cloud.createFamily($('spouseUid').value);$('familyMessage').textContent='共有を開始しました。次に下の「以前の記録をコピー」を実行してください。';}
+  catch(e){$('familyMessage').textContent=e.message||'設定に失敗しました。';}finally{b.disabled=false;updateFamilyDisplay();}
+};
+$('joinFamily').onclick=async()=>{
+  const b=$('joinFamily');b.disabled=true;$('familyMessage').textContent='確認中…';
+  try{await cloud.joinFamily($('ownerUid').value);$('familyMessage').textContent='共有に参加しました。';}
+  catch(e){$('familyMessage').textContent=e.message||'参加できませんでした。';}finally{b.disabled=false;updateFamilyDisplay();}
+};
+$('copyFamilyId').onclick=async()=>{
+  try{await navigator.clipboard.writeText(cloud.uid);alert('部長の共有IDをコピーしました。奥さんのアプリで貼り付けてください。');}
+  catch{alert('共有IDをコピーできませんでした。Safariで開いて再試行してください。');}
+};
+$('migrateFamily').onclick=async()=>{
+  if(!cloud?.getMode().isOwner)return;
+  if(!confirm('部長の個人用クラウド記録を、夫婦共有の保存先へコピーします。元データと個人トップ写真はそのまま残ります。実行しますか？'))return;
+  const b=$('migrateFamily');b.disabled=true;$('familyMigrationResult').textContent='コピー中…';
+  try{const result=await cloud.migratePersonalToFamily(p=>{$('familyMigrationResult').textContent=`${p.total}件中、コピー${p.copied}件・既存${p.skipped}件・失敗${p.failed}件`;});
+    $('familyMigrationResult').textContent=`完了：コピー${result.copied}件、既存${result.skipped}件、失敗${result.failed}件。${result.failed?'失敗した記録を確認し、再実行してください。':'部長の元データは残っています。'}`;
+  }catch(e){$('familyMigrationResult').textContent='コピーできませんでした：'+(e.message||'通信を確認してください');}
+  finally{b.disabled=false;}
+};
+window.addEventListener('suehiro-cloud-mode-changed',()=>{
+  cloudLoaded=false;records=[];render();status('共有データの読み込み中…');updateFamilyDisplay();
+});
+
 window.addEventListener('suehiro-cloud-ready',()=>{
+  updateFamilyDisplay();
   cloud=window.SuehiroCloud;cloudLoaded=false;heroLoaded=false;heroData=null;status('クラウドを読み込み中…');
   cloud.watchRecords(data=>{records=data;cloudLoaded=true;render();status('クラウドに接続済み・自動保存','ok');updateMigrationCount();},()=>{cloudLoaded=false;status('読み込みエラー。Firestoreのルールを確認してください。','error');updateMigrationCount();});
   cloud.watchHero(data=>{heroData=data;heroLoaded=true;showHero(data);updateMigrationCount();},()=>status('トップ写真の読み込みに失敗しました。','error'));
 });
-window.addEventListener('suehiro-cloud-disconnected',()=>{cloud=null;cloudLoaded=false;records=[];heroData=null;heroLoaded=false;showHero(null);render();status('ログイン待ち');updateMigrationCount();});
+window.addEventListener('suehiro-cloud-disconnected',()=>{cloud=null;updateFamilyDisplay();cloudLoaded=false;records=[];heroData=null;heroLoaded=false;showHero(null);render();status('ログイン待ち');updateMigrationCount();});
 (async()=>{db=await openDb();render();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});})();
 })();

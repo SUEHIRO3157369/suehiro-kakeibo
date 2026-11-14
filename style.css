@@ -3,3 +3,15 @@
 .cloud-status{font-size:12px;color:#5a7561;background:#eaf1e6;border-radius:10px;padding:10px 13px;margin-bottom:12px}.cloud-status[data-kind=error]{background:#fff0ea;color:#a34b3d}.cloud-status[data-kind=ok]{background:#e7f2e8;color:#39724b}.migration{padding:15px;margin-bottom:14px;background:#fff7e7;border:1px solid #edddc0;border-radius:15px;font-size:13px}.migration[hidden]{display:none}.migration p{color:#6a6658}.migration button{background:#597d65;color:white;border:0;border-radius:10px;padding:10px 13px;display:block;margin:9px 0}.migration small{display:block;color:#6f746b}
 
 .header-actions{display:flex;align-items:center;gap:9px}.settings-btn{font-size:21px}.settings-dialog{background:#fff;border:0;border-radius:22px;width:calc(100% - 30px);max-width:440px;padding:0;box-shadow:0 18px 55px #0003}.settings-inner{padding:22px;max-height:85vh;overflow:auto}.settings-description{color:#657468;font-size:13px;line-height:1.7}.settings-inner h2{margin:0;font-size:19px}.settings-done{width:100%;padding:12px;background:#edf2eb;color:#45694e;border:0;border-radius:12px;margin-top:12px}.migration{margin:18px 0 4px}.migration button:disabled{opacity:.55}.settings-dialog::backdrop{background:#17291d8a}
+
+.family-setup,.family-migration{background:#fff8eb;border:1px solid #eadfc6;border-radius:18px;padding:17px;margin:12px 0 16px;font-size:13px;line-height:1.6}
+.family-setup[hidden],.family-migration[hidden],.family-active[hidden]{display:none!important}
+.family-setup h2{margin:0 0 5px;font-size:18px}.family-setup p,.family-migration p{color:#6b7369}
+.family-actions{display:grid;gap:13px}.family-actions>div{background:white;padding:14px;border-radius:12px}
+.family-actions label{display:grid;gap:5px;font-size:12px;font-weight:650}
+.family-actions input{display:block;width:100%;border:1px solid #c8d4c7;border-radius:10px;padding:11px;font-size:16px}
+.family-actions button,.family-migration button,.family-active button{background:#597d65;color:white;border:0;padding:11px 14px;border-radius:10px;margin-top:10px;font-weight:650;font-size:13px}
+.family-actions button:disabled,.family-migration button:disabled{opacity:.55}
+.family-active{display:flex;gap:8px;justify-content:space-between;align-items:center;background:#e8f1e6;padding:13px;border-radius:12px;margin-bottom:12px;font-size:13px}
+.family-active small{display:block;color:#67806b;font-size:11px;padding-top:2px}.family-active button{margin:0;padding:8px;font-size:11px}
+#familyMigrationResult,#familyMessage{overflow-wrap:anywhere}
