@@ -17,7 +17,7 @@ function bridge(user){
   const activeMedia=id=>familyId?doc(database,'families',familyId,'media',String(id)):own('media',id);
   const metadata=()=>({uid,familyId,isOwner:familyId===uid,shared:!!familyId});
   function announce(){window.dispatchEvent(new CustomEvent('suehiro-cloud-mode-changed',{detail:metadata()}));}
-  function restartRecordWatch(){if(recordUnsubscribe){recordUnsubscribe();recordUnsubscribe=null;}if(recordCallback){const col=familyId?familyEntries(familyId):privateEntries;recordUnsubscribe=onSnapshot(col,q=>recordCallback(q.docs.map(x=>x.data())),recordError);}}
+  function restartRecordWatch(){if(recordUnsubscribe){recordUnsubscribe();recordUnsubscribe=null;}if(recordCallback){const col=familyId?familyEntries(familyId):privateEntries;recordUnsubscribe=onSnapshot(col,{includeMetadataChanges:true},q=>recordCallback(q.docs.map(x=>x.data()),{fromCache:q.metadata.fromCache,hasPendingWrites:q.metadata.hasPendingWrites}),recordError);}}
   async function selectFamily(id){familyId=id;restartRecordWatch();announce();}
   const bridgeObject={
     uid, getMode:metadata,

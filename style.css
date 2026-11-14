@@ -15,3 +15,15 @@
 .family-active{display:flex;gap:8px;justify-content:space-between;align-items:center;background:#e8f1e6;padding:13px;border-radius:12px;margin-bottom:12px;font-size:13px}
 .family-active small{display:block;color:#67806b;font-size:11px;padding-top:2px}.family-active button{margin:0;padding:8px;font-size:11px}
 #familyMigrationResult,#familyMessage{overflow-wrap:anywhere}
+
+/* v4.1: 家計簿を開いたら写真と収支をすぐ確認できる、コンパクトな共有表示 */
+.compact-family{padding:7px 12px;margin:0 0 12px;border-radius:10px;background:#edf4ec;gap:6px;}
+.compact-family strong{color:#4d7659;font-weight:650;font-size:12px;}
+.compact-family small{display:inline;color:#6c8775;font-size:11px;margin-left:8px;}
+.family-migration{margin:16px 0;background:#fff8eb;}
+.family-id-settings{background:#f4f7f1;border-radius:14px;padding:14px;margin-top:16px;font-size:13px;}
+.family-id-settings[hidden]{display:none!important;}
+.family-id-settings p{color:#6b7369;font-size:12px;}
+.family-id-settings button{background:#597d65;color:#fff;border:0;border-radius:10px;padding:11px;margin-top:5px;}
+.cloud-status{padding:9px 12px;margin-bottom:8px;font-weight:550;}
+.cloud-status[data-kind=info]{background:#f4f2e6;color:#786c49;}
