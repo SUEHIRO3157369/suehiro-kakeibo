@@ -40,6 +40,69 @@ $('entryPhoto').onchange=()=>{const file=$('entryPhoto').files[0],p=$('photoPrev
 $('entryForm').onsubmit=async e=>{e.preventDefault();if(!cloudLoaded)return;const b=$('entryForm').querySelector('[type=submit]'),amount=Number($('entryAmount').value),date=$('entryDate').value;if(!Number.isSafeInteger(amount)||amount<=0||amount>1e12||!/^\d{4}-\d{2}-\d{2}$/.test(date))return alert('日付と金額を確認してね。');b.disabled=true;const id=String(Date.now())+String(Math.floor(Math.random()*100000));let hasPhoto=false;try{await withSaving(async()=>{const file=$('entryPhoto').files[0];if(file){await cloud.saveImage('entry-'+id,await compress(file,850));hasPhoto=true;}await cloud.saveRecord({id,date,type:document.querySelector('input[name="type"]:checked').value,category:$('entryCategory').value,memo:$('entryMemo').value.trim(),amount,hasPhoto});});$('entryDialog').close();selected=date;const [yy,mm]=date.split('-').map(Number);view=new Date(yy,mm-1,1);}catch(err){status('保存失敗。記録はまだ確定していません。','error');alert('クラウドに保存できませんでした。通信かFirestoreのルールを確認してください。');}finally{b.disabled=false;}};
 $('heroUpload').onchange=async e=>{const file=e.target.files[0];if(!file||!cloudLoaded)return;try{await withSaving(async()=>{const data=await compress(file,1100);await cloud.saveImage('hero',data);},'トップ写真をクラウドに保存済み');}catch(err){status('写真の保存に失敗しました。','error');alert('写真を保存できませんでした。画像を小さくして再試行してください。');}e.target.value='';};
 $('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify({app:'末廣家の家計簿',exported:new Date().toISOString(),records,notice:'写真は含まれません'},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='末廣家の家計簿-'+today+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);alert('文字の記録を保存しました。写真は含まれません。');};
+// 完全バックアップ／不足分のみ復元（個人トップ写真は各自専用）
+let pendingBackup=null,backupBusy=false;
+function backupMessage(s,isError=false){const el=$('backupResult');el.textContent=s;el.style.color=isError?'#a34b3d':'#45694e';}
+function validBackup(b){
+  if(!b||b.format!=='suehiro-kakeibo-backup'||b.version!==1||!['family','personal'].includes(b.scope)||
+     !Array.isArray(b.entries)||!b.photos||typeof b.photos!=='object'||Array.isArray(b.photos)||
+     typeof b.heroOwnerUid!=='string'||(b.hero!==null&&typeof b.hero!=='string')||b.entries.length>100000||Object.keys(b.photos).length>100000)
+    throw Error('対応したバックアップ形式ではありません。');
+  if(b.hero!==null&&!b.hero.startsWith('data:image/'))throw Error('トップ写真の形式を確認してください。');
+  const ids=new Set();
+  for(const r of b.entries){
+    if(!r||typeof r.id!=='string'||!/^[A-Za-z0-9_-]{1,150}$/.test(r.id)||ids.has(r.id)||
+      typeof r.date!=='string'||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(r.date)||
+      !['income','expense'].includes(r.type)||!Number.isSafeInteger(r.amount)||r.amount<=0||r.amount>1e12||
+      typeof r.category!=='string'||typeof r.memo!=='string'||typeof r.hasPhoto!=='boolean')
+      throw Error('記録データの形式に問題があります。');
+    ids.add(r.id);
+  }
+  for(const [k,v] of Object.entries(b.photos)){
+    if(!/^entry-[A-Za-z0-9_-]{1,150}$/.test(k)||typeof v!=='string'||!v.startsWith('data:image/'))
+      throw Error('写真データの形式に問題があります。');
+  }
+  return b;
+}
+$('fullBackup').onclick=async()=>{
+  if(backupBusy||!cloudLoaded||!cloud){backupMessage('クラウドの読み込みが完了してから操作してください。',true);return;}
+  backupBusy=true;$('fullBackup').disabled=true;backupMessage('クラウドから記録と写真を取得中…');
+  try{
+    const b=await cloud.exportFullBackup();
+    const raw=JSON.stringify(b);const blob=new Blob([raw],{type:'application/json'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='末廣家の家計簿-写真込み-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+    backupMessage(`バックアップを作成しました：記録${b.entries.length}件・日別写真${Object.keys(b.photos).length}枚・トップ写真${b.hero?'あり':'なし'}。必ず「ファイル」に保存されたことを確認してください。`);
+  }catch(e){backupMessage('バックアップ失敗：'+(e.message||'ネット接続を確認してください。'),true);}
+  finally{backupBusy=false;$('fullBackup').disabled=false;}
+};
+$('restoreFile').onchange=async e=>{
+  pendingBackup=null;$('restoreBackup').disabled=true;
+  const f=e.target.files[0];if(!f)return;
+  if(f.size>80*1024*1024){backupMessage('ファイルが80MBを超えています。分割バックアップが必要です。',true);return;}
+  try{
+    const obj=validBackup(JSON.parse(await f.text()));
+    pendingBackup=obj;$('restoreBackup').disabled=false;
+    backupMessage(`選択したファイル：記録${obj.entries.length}件、日別写真${Object.keys(obj.photos).length}枚、トップ写真${obj.hero?'あり':'なし'}。復元前に保存先を確認してください。`);
+  }catch(err){backupMessage('ファイルを読み取れません：'+(err.message||'形式を確認してください。'),true);}
+};
+$('restoreBackup').onclick=async()=>{
+  if(backupBusy||!cloudLoaded||!cloud||!pendingBackup)return;
+  const b=pendingBackup,mode=cloud.getMode(),scope=mode.shared?'family':'personal';
+  if(b.scope!==scope||(scope==='family'&&b.familyId!==mode.familyId)){
+    backupMessage('バックアップと現在の共有先が一致しません。別の共有先への復元は行いません。',true);return;
+  }
+  const heroMessage=b.heroOwnerUid===cloud.uid?'本人専用トップ写真も対象':'トップ写真は別アカウントなので復元対象外';
+  if(!confirm(`記録${b.entries.length}件・日別写真${Object.keys(b.photos).length}枚を確認します。${heroMessage}。既存の同じIDは上書きしません。続けますか？`))return;
+  backupBusy=true;$('restoreBackup').disabled=true;$('fullBackup').disabled=true;
+  backupMessage('復元中… アプリを閉じずにお待ちください。');
+  try{
+    const result=await cloud.restoreFullBackup(b,p=>backupMessage(`復元中：記録${p.copied}件追加・${p.skipped}件既存・${p.failed}件失敗`));
+    backupMessage(`復元結果：記録${result.copied}件追加・${result.skipped}件既存、日別写真${result.photosCopied}枚追加・${result.photosSkipped}枚既存、失敗${result.failed}件。${result.failed?'一部失敗したので確認してください。':'元のクラウドデータは削除していません。'}`,result.failed>0);
+  }catch(e){backupMessage('復元できません：'+(e.message||'通信を確認してください。'),true);}
+  finally{backupBusy=false;$('restoreBackup').disabled=false;$('fullBackup').disabled=false;}
+};
 // 移行機能は設定画面にのみ配置。トップには出さない。
 const settingsDialog=$('settingsDialog');
 $('openSettings').onclick=()=>{updateMigrationCount();updateFamilyDisplay();settingsDialog.showModal();};

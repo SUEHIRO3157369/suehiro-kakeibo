@@ -27,3 +27,8 @@
 .family-id-settings button{background:#597d65;color:#fff;border:0;border-radius:10px;padding:11px;margin-top:5px;}
 .cloud-status{padding:9px 12px;margin-bottom:8px;font-weight:550;}
 .cloud-status[data-kind=info]{background:#f4f2e6;color:#786c49;}
+
+/* v4.2 写真込みバックアップ */
+.backup-section{border:1px solid #d8e6dc;background:#f3f8f3;border-radius:15px;padding:15px;margin:17px 0;font-size:13px;line-height:1.65}
+.backup-section p{color:#566d5b}.backup-action{display:block;width:100%;border:0;border-radius:11px;background:#597d65;color:white;padding:12px;font-weight:700;margin:10px 0}
+.backup-action:disabled{opacity:.5}.backup-file-label{display:grid;gap:7px;font-weight:650;margin-top:15px}.backup-file-label input{width:100%;font-size:12px;max-width:100%}.backup-note{font-size:11px}.backup-section #backupResult{overflow-wrap:anywhere;font-weight:650}

@@ -1,6 +1,6 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js';
 import {getAuth,setPersistence,browserLocalPersistence,onAuthStateChanged,signInWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js';
-import {getFirestore,collection,doc,setDoc,getDoc,getDocs,deleteDoc,onSnapshot,serverTimestamp,runTransaction} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js';
+import {getFirestore,collection,doc,setDoc,getDoc,getDocs,getDocsFromServer,getDocFromServer,deleteDoc,onSnapshot,serverTimestamp,runTransaction} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js';
 const config={apiKey:'AIzaSyARnnrDQs0RigPP3xEQDspPjROeMCLVolE',authDomain:'suehiro-kakeibo.firebaseapp.com',projectId:'suehiro-kakeibo',storageBucket:'suehiro-kakeibo.firebasestorage.app',messagingSenderId:'972353857496',appId:'1:972353857496:web:99a0df162600c2504634ad'};
 const app=initializeApp(config),auth=getAuth(app),database=getFirestore(app);
 const gate=document.getElementById('authGate'),form=document.getElementById('authForm'),message=document.getElementById('authMessage');
@@ -31,6 +31,45 @@ function bridge(user){
     async deleteImage(id){await deleteDoc(id==='hero'?personalMedia('hero'):activeMedia(id));},
     async importRecordIfMissing(record){const target=activeEntry(record.id);return runTransaction(database,async tx=>{const s=await tx.get(target);if(s.exists())return false;tx.set(target,{...record,updatedAt:serverTimestamp()});return true;});},
     async importImageIfMissing(id,data){const target=id==='hero'?personalMedia('hero'):activeMedia(id);return runTransaction(database,async tx=>{const s=await tx.get(target);if(s.exists())return false;tx.set(target,{data,updatedAt:serverTimestamp()});return true;});},
+    // バックアップは必ずサーバーから取得。夫婦共通の家計データ＋本人専用トップ写真。
+    async exportFullBackup(){
+      if(!navigator.onLine)throw Error('オンラインで実行してください。');
+      const scope=familyId?collection(database,'families',familyId,'entries'):privateEntries;
+      const media=familyId?collection(database,'families',familyId,'media'):collection(database,'users',uid,'media');
+      const [entrySnap,mediaSnap,heroSnap]=await Promise.all([
+        getDocsFromServer(scope),getDocsFromServer(media),getDocFromServer(personalMedia('hero'))
+      ]);
+      if(entrySnap.docs.some(d=>d.metadata.hasPendingWrites)||mediaSnap.docs.some(d=>d.metadata.hasPendingWrites))throw Error('保存中の変更があります。少し後に再実行してください。');
+      const entries=entrySnap.docs.map(d=>({id:d.id,...d.data(),updatedAt:undefined}));
+      const photos={};
+      for(const d of mediaSnap.docs){const v=d.data().data;if(d.id!=='hero'&&typeof v==='string'&&v.startsWith('data:image/'))photos[d.id]=v;}
+      const hero=heroSnap.exists()&&typeof heroSnap.data().data==='string'?heroSnap.data().data:null;
+      return {format:'suehiro-kakeibo-backup',version:1,exportedAt:new Date().toISOString(),
+        scope:familyId?'family':'personal',familyId:familyId||null,
+        // 本人専用トップ写真はこのバックアップを作成した本人だけに復元可能
+        heroOwnerUid:uid,entries,photos,hero};
+    },
+    async restoreFullBackup(backup,progress){
+      if(!navigator.onLine)throw Error('オンラインで実行してください。');
+      if(backup.scope!==(familyId?'family':'personal')||(backup.scope==='family'&&backup.familyId!==familyId))
+        throw Error('現在の家計簿とバックアップの共有先が異なります。復元できません。');
+      let copied=0,skipped=0,failed=0;
+      for(const r of backup.entries){
+        try{if(await bridgeObject.importRecordIfMissing(r))copied++;else skipped++;}catch(e){failed++;}
+        progress?.({copied,skipped,failed});
+      }
+      let photosCopied=0,photosSkipped=0;
+      for(const [id,data] of Object.entries(backup.photos)){
+        try{if(await bridgeObject.importImageIfMissing(id,data))photosCopied++;else photosSkipped++;}catch(e){failed++;}
+        progress?.({copied,skipped,failed,photosCopied});
+      }
+      let heroRestored=false;
+      if(backup.hero&&backup.heroOwnerUid===uid){
+        try{heroRestored=await bridgeObject.importImageIfMissing('hero',backup.hero);}catch(e){failed++;}
+      }
+      return {copied,skipped,failed,photosCopied,photosSkipped,heroRestored,
+        heroSkippedForDifferentUser:!!backup.hero&&backup.heroOwnerUid!==uid};
+    },
     async createFamily(spouseUid){
       spouseUid=spouseUid.trim();
       if(!/^[A-Za-z0-9]{10,128}$/.test(spouseUid)||spouseUid===uid)throw Error('奥さんのUIDを確認してください。');
